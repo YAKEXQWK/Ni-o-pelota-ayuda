@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Aventura de Halloween: Rescata la Pelota</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            background: #000000;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .pantalla {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .oculto { display: none !important; }
+        
+        /* CINEMÁTICA AUTOMÁTICA */
+        #pantalla-cinematica {
+            background: radial-gradient(circle, #1e1b4b 0%, #000000 100%);
+        }
+        .texto-cinematica {
+            font-size: 18px;
+            color: #cbd5e1;
+            max-width: 320px;
+            line-height: 1.5;
+            margin-bottom: 25px;
+            min-height: 80px;
+        }
+        .btn-cinematica {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-weight: bold;
+            font-size: 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+
+        /* JUEGO PRINCIPAL */
+        #contenedor-juego {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000000;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+        }
+        
+        .escenario-bosque {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            max-width: 420px;
+            background: #000000;
+            overflow: hidden;
+        }
+
+        .elemento-mapa {
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .elemento-mapa:active { transform: scale(0.92); }
+
+        /* Panel de 8 casillas inferiores */
+        .panel-inferior {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.98);
+            border-top: 3px solid #334155;
+            padding: 8px 4px;
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+        .casilla {
+            width: 38px;
+            height: 38px;
+            background: #1e293b;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            position: relative;
+        }
+        .casilla.seleccionada {
+            border-color: #f59e0b;
+            box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+            background: #334155;
+        }
+
+        /* Burbuja de diálogo */
+        .burbuja-dialogo {
+            position: absolute;
+            background: white;
+            color: #0f172a;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+            max-width: 180px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            text-align: center;
+            z-index: 30;
+            transform: translateX(-50%);
+        }
+        .burbuja-dialogo::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 5px 5px 0;
+            border-style: solid;
+            border-color: white transparent;
+            display: block;
+            width: 0;
+        }
+
+        /* Ventanas Modales (Celular, Reloj, TV) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .modal-contenido {
+            background: #1e293b;
+            border: 3px solid #475569;
+            border-radius: 16px;
+            padding: 20px;
+            width: 280px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+        }
+
+        /* Pantallas de Victoria */
+        #pantalla-victoria-1, #pantalla-victoria-2 {
+            background: radial-gradient(circle, #064e3b 0%, #022c22 100%);
+        }
+        .tarjeta-premio {
+            background: rgba(6, 78, 59, 0.9);
+            border: 3px solid #059669;
+            border-radius: 20px;
+            padding: 20px;
+            max-width: 320px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- CINEMÁTICA AUTOMÁTICA -->
+    <div id="pantalla-cinematica" class="pantalla">
+        <div style="font-size: 60px; margin-bottom: 20px;" id="icono-cinematica">👦⚽</div>
+        <div class="texto-cinematica" id="texto-cinematica">Un niño jugaba alegremente con su pelota por el vecindario...</div>
+        <button class="btn-cinematica oculto" id="btn-comenzar" onclick="iniciarJuego()">Comenzar Aventura 🚀</button>
+    </div>
+
+    <!-- JUEGO PRINCIPAL (DISTRIBUCIÓN EXACTA DE LA IMAGEN) -->
+    <div id="contenedor-juego" class="oculto">
+        <div class="escenario-bosque" id="escenario">
+            
+            <!-- Cielo: Luna y Nubes -->
+            <div style="position: absolute; top: 12px; right: 90px; font-size: 38px;">🌕</div>
+            <div style="position: absolute; top: 10px; right: 150px; font-size: 22px;">☁️</div>
+            <div style="position: absolute; top: 35px; right: 35px; font-size: 20px;">☁️</div>
+
+            <!-- Parroquia central superior -->
+            <div class="elemento-mapa" id="parroquia-obj" style="top: 15px; left: 50%; transform: translateX(-50%); font-size: 45px;" onclick="tocarParroquia()">🏤</div>
+            <span id="destornillador-parroquia" style="position: absolute; top: 22px; left: 51%; font-size: 16px; z-index: 5; pointer-events: none;">🪛</span>
+
+            <!-- Casas abandonadas izquierda y derecha -->
+            <div class="elemento-mapa" style="top: 85px; left: 25px; font-size: 42px;" onclick="tocarCasaIzquierda()">🏚️</div>
+            <div class="elemento-mapa" style="top: 85px; right: 25px; font-size: 42px;" onclick="tocarCasaDerecha()">🏚️</div>
+
+            <!-- Árboles zona alta -->
+            <div class="elemento-mapa" style="top: 95px; left: 32%; font-size: 32px;" onclick="tocarArbol()">🌲</div>
+            <div class="elemento-mapa" style="top: 95px; left: 40%; font-size: 32px;" onclick="tocarArbol()">🌳</div>
+            <div class="elemento-mapa" style="top: 95px; right: 40%; font-size: 32px;" onclick="tocarArbol()">🌳</div>
+            <div class="elemento-mapa" style="top: 95px; right: 32%; font-size: 32px;" onclick="tocarArbol()">🌲</div>
+
+            <!-- Árboles zona media -->
+            <div class="elemento-mapa" style="top: 175px; left: 40%; font-size: 32px;" onclick="tocarArbol()">🌳</div>
+            <div class="elemento-mapa" style="top: 175px; right: 40%; font-size: 32px;" onclick="tocarArbol()">🌳</div>
+
+            <!-- 4 Filas de Tumbas (3 de ancho: Izq 1, Izq 2, Centro Niño, Der 1, Der 2) -->
+            <!-- FILA 1 -->
+            <div class="elemento-mapa" style="top: 145px; left: 35px; font-size: 30px;" onclick="tocarTumba(0, 0)">🪦</div>
+            <div class="elemento-mapa" style="top: 145px; left: 95px; font-size: 30px;" onclick="tocarTumba(0, 1)">🪦</div>
+            <div class="elemento-mapa" style="top: 155px; right: 115px; font-size: 30px;" onclick="tocarTumba(0, 3)">🪦</div>
+            <div class="elemento-mapa" style="top: 155px; right: 40px; font-size: 30px;" onclick="tocarTumba(0, 4)">🪦</div>
+
+            <!-- FILA 2 -->
+            <div class="elemento-mapa" style="top: 215px; left: 35px; font-size: 30px;" onclick="tocarTumba(1, 0)">🪦</div>
+            <div class="elemento-mapa" style="top: 215px; left: 95px; font-size: 30px;" onclick="tocarTumba(1, 1)">🪦</div>
+            <div class="elemento-mapa" style="top: 215px; right: 115px; font-size: 30px;" onclick="tocarTumba(1, 3)">🪦</div>
+            <div class="elemento-mapa" style="top: 215px; right: 40px; font-size: 30px;" onclick="tocarTumba(1, 4)">🪦</div>
+
+            <!-- NIÑO CENTRO -->
+            <div class="elemento-mapa" style="top: 210px; left: 50%; transform: translateX(-50%); font-size: 38px; z-index: 10;" onclick="tocarNino()">👦</div>
+            <div class="elemento-mapa" id="pelota-obj" style="top: 235px; left: 56%; font-size: 18px; z-index: 9;">⚽</div>
+
+            <!-- FILA 3 -->
+            <div class="elemento-mapa" style="top: 285px; left: 35px; font-size: 30px;" onclick="tocarTumba(2, 0)">🪦</div>
+            <div class="elemento-mapa" style="top: 285px; left: 95px; font-size: 30px;" onclick="tocarTumba(2, 1)">🪦</div>
+            <div class="elemento-mapa" style="top: 285px; right: 115px; font-size: 30px;" onclick="tocarTumba(2, 3)">🪦</div>
+            <div class="elemento-mapa" style="top: 285px; right: 40px; font-size: 30px;" onclick="tocarTumba(2, 4)">🪦</div>
+
+            <!-- FILA 4 (Tumba tercera der/izq guarda batería) -->
+            <div class="elemento-mapa" style="top: 355px; left: 35px; font-size: 30px;" onclick="tocarTumba(3, 0)">🪦</div>
+            <div class="elemento-mapa" style="top: 355px; left: 95px; font-size: 30px;" onclick="tocarTumba(3, 1)">🪦</div>
+            <div class="elemento-mapa" style="top: 355px; right: 115px; font-size: 30px;" onclick="tocarTumba(3, 3)">🪦</div>
+            <div class="elemento-mapa" style="top: 355px; right: 40px; font-size: 30px;" onclick="tocarTumba(3, 4)">🪦</div>
+
+            <!-- Hojas secas (Arriba a la derecha de las tumbas y abajo) -->
+            <div class="elemento-mapa" id="hojas-obj" style="top: 145px; right: 145px; font-size: 32px;" onclick="tocarHojas()">🍂</div>
+            <div class="elemento-mapa" style="bottom: 150px; left: 35px; font-size: 32px;" onclick="tocarArbol()">🍂</div>
+            <div class="elemento-mapa" style="bottom: 120px; right: 45px; font-size: 32px;" onclick="tocarArbol()">🍂</div>
+
+            <!-- Árboles zona baja -->
+            <div class="elemento-mapa" style="bottom: 140px; left: 85px; font-size: 32px;" onclick="tocarArbol()">🌲</div>
+            <div class="elemento-mapa" style="bottom: 95px; left: 145px; font-size: 32px;" onclick="tocarArbol()">🌲</div>
+            <div class="elemento-mapa" style="bottom: 105px; right: 135px; font-size: 32px;" onclick="tocarArbol()">🌲</div>
+            <div class="elemento-mapa" style="bottom: 60px; left: 195px; font-size: 32px;" onclick="tocarArbol()">🌲</div>
+            <div class="elemento-mapa" style="bottom: 45px; right: 75px; font-size: 32px;" onclick="tocarArbol()">🍂</div>
+
+            <!-- Burbuja de diálogo -->
+            <div class="burbuja-dialogo oculto" id="burbuja" style="top: 170px; left: 50%;"></div>
+        </div>
+
+        <!-- 8 Casillas del inventario inferior -->
+        <div class="panel-inferior" id="panel-inventario">
+            <div class="casilla" onclick="seleccionarCasilla(0)" id="slot-0"></div>
+            <div class="casilla" onclick="seleccionarCasilla(1)" id="slot-1"></div>
+            <div class="casilla" onclick="seleccionarCasilla(2)" id="slot-2"></div>
+            <div class="casilla" onclick="seleccionarCasilla(3)" id="slot-3"></div>
+            <div class="casilla" onclick="seleccionarCasilla(4)" id="slot-4"></div>
+            <div class="casilla" onclick="seleccionarCasilla(5)" id="slot-5"></div>
+            <div class="casilla" onclick="seleccionarCasilla(6)" id="slot-6"></div>
+            <div class="casilla" onclick="seleccionarCasilla(7)" id="slot-7"></div>
+        </div>
+    </div>
+
+    <!-- MODAL RELOJ -->
+    <div id="modal-reloj" class="modal-overlay oculto">
+        <div class="modal-contenido">
+            <h3 style="color: #f59e0b; margin-top: 0;">⌚ Ajustar Reloj (1:00 PM)</h3>
+            <div style="font-size: 36px; margin: 15px 0; font-weight: bold;" id="display-hora">12:00 PM</div>
+            <div style="display: flex; justify-content: center; gap: 15px; margin-bottom: 15px;">
+                <button class="btn-cinematica" onclick="cambiarHora(-1)">◀️</button>
+                <button class="btn-cinematica" onclick="cambiarHora(1)">▶️️</button>
+            </div>
+            <button style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;" onclick="cerrarModal('modal-reloj')">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODAL TELEVISIÓN (COLORES) -->
+    <div id="modal-tv" class="modal-overlay oculto">
+        <div class="modal-contenido">
+            <h3 style="color: #38bdf8; margin-top: 0;">📺 Patrón de Colores</h3>
+            <p style="font-size: 12px; color: #94a3b8;">Toca cada círculo para cambiar su color y formar el patrón correcto.</p>
+            <div style="display: flex; justify-content: center; gap: 10px; margin: 20px 0;" id="secuencia-colores">
+                <div class="circulo-color" onclick="girarColor(0)" id="c-0" style="width: 35px; height: 35px; border-radius: 50%; background: orange; cursor: pointer; border: 2px solid white;"></div>
+                <div class="circulo-color" onclick="girarColor(1)" id="c-1" style="width: 35px; height: 35px; border-radius: 50%; background: yellow; cursor: pointer; border: 2px solid white;"></div>
+                <div class="circulo-color" onclick="girarColor(2)" id="c-2" style="width: 35px; height: 35px; border-radius: 50%; background: green; cursor: pointer; border: 2px solid white;"></div>
+                <div class="circulo-color" onclick="girarColor(3)" id="c-3" style="width: 35px; height: 35px; border-radius: 50%; background: white; cursor: pointer; border: 2px solid white;"></div>
+            </div>
+            <div id="resultado-tv" style="font-size: 14px; font-weight: bold; color: #34d399; margin-bottom: 15px; min-height: 20px;"></div>
+            <button style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;" onclick="cerrarModal('modal-tv')">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODAL TELÉFONO (CÓDIGO) -->
+    <div id="modal-telefono" class="modal-overlay oculto">
+        <div class="modal-contenido">
+            <h3 style="color: #a855f7; margin-top: 0;">📱 Ingresar Código</h3>
+            <div style="font-size: 28px; letter-spacing: 5px; background: #0f172a; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #475569;" id="input-codigo">----</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px;">
+                <button class="btn-cinematica" onclick="agregarDigito('1')">1</button>
+                <button class="btn-cinematica" onclick="agregarDigito('2')">2</button>
+                <button class="btn-cinematica" onclick="agregarDigito('3')">3</button>
+                <button class="btn-cinematica" onclick="agregarDigito('4')">4</button>
+                <button class="btn-cinematica" onclick="agregarDigito('5')">5</button>
+                <button class="btn-cinematica" onclick="agregarDigito('6')">6</button>
+                <button class="btn-cinematica" onclick="agregarDigito('7')">7</button>
+                <button class="btn-cinematica" onclick="agregarDigito('8')">8</button>
+                <button class="btn-cinematica" onclick="agregarDigito('9')">9</button>
+                <button class="btn-cinematica" onclick="borrarDigito()">⌫</button>
+                <button class="btn-cinematica" onclick="agregarDigito('0')">0</button>
+                <button class="btn-cinematica" style="background: #10b981;" onclick="probarCodigo()">✔</button>
+            </div>
+            <button style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;" onclick="cerrarModal('modal-telefono')">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE VICTORIA 1 -->
+    <div id="pantalla-victoria-1" class="pantalla oculto">
+        <div class="tarjeta-premio">
+            <h1 style="color: #34d399; font-size: 20px; margin-top: 0;">🎉 ¡Primer Premio Conseguido!</h1>
+            <p style="color: #e2e8f0; font-size: 13px; margin: 15px 0;" id="texto-premio-1">¡Ganaste el premio es tuyo, una caja de conechocos te espera reclamar con Alex!</p>
+            <button class="btn-cinematica" style="width: 100%;" onclick="continuarSegundoPremio()">Continuar por el 2do Premio 🎁</button>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE VICTORIA 2 -->
+    <div id="pantalla-victoria-2" class="pantalla oculto">
+        <div class="tarjeta-premio">
+            <h1 style="color: #34d399; font-size: 20px; margin-top: 0;">🌟 ¡Juego Completado!</h1>
+            <p style="color: #e2e8f0; font-size: 13px; margin: 15px 0;">¡Ganaste una caja pequeña de dulces! Reclamarla con Alex.</p>
+            <button class="btn-cinematica" style="width: 100%;" onclick="location.reload()">Jugar de Nuevo</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CINEMÁTICA AUTOMÁTICA ---
+        let pasoCinematica = 0;
+        const textosCinematica = [
+            "Un niño jugaba alegremente con su pelota por el vecindario...",
+            "De repente, ¡pateó la pelota con demasiada fuerza y cayó dentro del cementerio tenebroso!",
+            "El niño entró asustado a buscarla, pero quedó atrapado y pide ayuda desesperado...",
+            "¡Usa las herramientas ocultas en el cementerio para ayudarlo a recuperar su pelota!"
+        ];
+        const iconosCinematica = ["👦⚽", "⚽💨🪦", "😱🏚️", "🛠️🎒"];
+
+        function avanzarCinematicaAuto() {
+            pasoCinematica++;
+            if (pasoCinematica < textosCinematica.length) {
+                document.getElementById('texto-cinematica').innerText = textosCinematica[pasoCinematica];
+                document.getElementById('icono-cinematica').innerText = iconosCinematica[pasoCinematica];
+                setTimeout(avanzarCinematicaAuto, 3000);
+            } else {
+                document.getElementById('btn-comenzar').classList.remove('oculto');
+            }
+        }
+        setTimeout(avanzarCinematicaAuto, 3000);
+
+        function iniciarJuego() {
+            document.getElementById('pantalla-cinematica').classList.add('oculto');
+            document.getElementById('contenedor-juego').classList.remove('oculto');
+            hablar("¡Ayuda! Mi pelota cayó aquí y no puedo salir. ¡Busca entre las hojas!");
+        }
+
+        // --- ESTADOS Y INVENTARIO (8 Casillas) ---
+        let inventario = [null, null, null, null, null, null, null, null];
+        let indiceSeleccionado = null;
+
+        // Banderas de progresión
+        let hojasDespejadas = false;
+        let palaObtenida = false;
+        let martilloObtenido = false;
+        let casaDerRota = false;
+        let casaIzqRota = false;
+        let escaleraObtenida = false;
+        let relojObtenido = false;
+        let bateriaObtenida = false;
+        let destornilladorObtenido = false;
+        let cajaAbierta = false;
+        let telefonoObtenido = false;
+        let esqueletoDerrotado = false;
+        let antenaObtenida = false;
+        let tvPrendida = false;
+        let codigoColoresResuelto = false;
+        let codigoTelefonoIngresado = false;
+
+        // Hora del reloj (Minutos totales desde las 12:00)
+        let minutosReloj = 0; // 0 = 12:00 PM, 60 = 1:00 PM
+
+        // Colores de la TV (0: orange, 1: yellow, 2: green, 3: white)
+        // Patrón correcto: 🔴⚪🟡🔵 -> Mapeo visual: 0: red(#ef4444), 1: white(#ffffff), 2: yellow(#eab308), 3: blue(#3b82f6)
+        let coloresTV = ['orange', 'yellow', 'green', 'white'];
+        const listaColores = ['orange', 'yellow', 'green', 'white', 'red', 'blue'];
+        const patronCorrecto = ['red', 'white', 'yellow', 'blue'];
+
+        let codigoIngresadoText = "";
+
+        function hablar(texto) {
+            let burbuja = document.getElementById('burbuja');
+            burbuja.innerText = texto;
+            burbuja.classList.remove('oculto');
+        }
+
+        function agregarItem(item) {
+            for(let i=0; i<inventario.length; i++) {
+                if(inventario[i] === null) {
+                    inventario[i] = item;
+                    actualizarInventarioUI();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function removerItem(itemEmoji) {
+            for(let i=0; i<inventario.length; i++) {
+                if(inventario[i] === itemEmoji) {
+                    inventario[i] = null;
+                    if(indiceSeleccionado === i) indiceSeleccionado = null;
+                    actualizarInventarioUI();
+                    break;
+                }
+            }
+        }
+
+        function actualizarInventarioUI() {
+            for(let i=0; i<8; i++) {
+                let slot = document.getElementById(`slot-${i}`);
+                slot.innerText = inventario[i] || "";
+                if(i === indiceSeleccionado) {
+                    slot.classList.add('seleccionada');
+                } else {
+                    slot.classList.remove('seleccionada');
+                }
+            }
+        }
+
+        function seleccionarCasilla(index) {
+            if(inventario[index]) {
+                let item = inventario[index];
+                indiceSeleccionado = index;
+                actualizarInventarioUI();
+
+                // Interacciones directas al tocar ítem en inventario
+                if(item === '⌚') {
+                    if(!bateriaObtenida) {
+                        hablar("El reloj no funciona, ¡le faltan baterías!");
+                    } else {
+                        document.getElementById('modal-reloj').classList.remove('oculto');
+                    }
+                } else if(item === '📡' && !tvPrendida) {
+                    // Tocar antena con TV en el escenario o inventario
+                    hablar("Toca la televisión en el escenario con la antena puesta para encenderla.");
+                } else if(item === '📺') {
+                    document.getElementById('modal-tv').classList.remove('oculto');
+                } else if(item === '📱') {
+                    document.getElementById('modal-telefono').classList.remove('oculto');
+                }
+            } else {
+                indiceSeleccionado = null;
+                actualizarInventarioUI();
+            }
+        }
+
+        function cerrarModal(id) {
+            document.getElementById(id).classList.add('oculto');
+        }
+
+        // --- INTERACCIONES DEL MAPA ---
+        function tocarNino() {
+            if(codigoTelefonoIngresado) {
+                hablar("¡Gracias por recuperar mi pelota! ¡Eres increíble!");
+            } else if(martilloObtenido && !casaDerRota) {
+                hablar("Usa el martillo para romper las casas abandonadas de arriba.");
+            } else if(escaleraObtenida) {
+                hablar("Usa la escalera en la parroquia de arriba para alcanzar el destornillador.");
+            } else {
+                hablar("¡Hola! Mi pelota cayó aquí. Por favor ayúdame a buscar herramientas.");
+            }
+        }
+
+        function tocarArbol() {
+            hablar("Es solo un árbol viejo del cementerio.");
+        }
+
+        function tocarHojas() {
+            if(!hojasDespejadas) {
+                hojasDespejadas = true;
+                palaObtenida = true;
+                hablar("¡Encontré una pala entre las hojas! 🪏 Añadida al inventario.");
+                document.getElementById('hojas-obj').style.opacity = "0.3";
+                agregarItem('🪏');
+            } else {
+                hablar("Las hojas ya están despejadas.");
+            }
+        }
+
+        function tocarTumba(fila, col) {
+            let itemSel = indiceSeleccionado !== null ? inventario[indiceSeleccionado] : null;
+
+            // Fila 2, Segundo elemento (Fila índice 1, Col índice 1) -> Martillo
+            if(fila === 1 && col === 1) {
+                if(palaObtenida && !martilloObtenido) {
+                    martilloObtenido = true;
+                    hablar("¡Escavaste y encontraste un martillo! 🔨");
+                    agregarItem('🔨');
+                } else if(!palaObtenida) {
+                    hablar("Necesitas una pala para escavar aquí.");
+                } else {
+                    hablar("Ya encontraste el martillo en esta tumba.");
+                }
+            } 
+            // Fila 4, Tercera tumba (Fila índice 3, Col índice 3 o 1 según diseño - regla: 4ta fila, 3era tumba)
+            else if(fila === 3 && col === 3) {
+                if(palaObtenida && !bateriaObtenida) {
+                    bateriaObtenida = true;
+                    hablar("¡Escavaste en la tumba y encontraste una batería! 🔋");
+                    agregarItem('🔋');
+                } else {
+                    hablar("Aquí ya no hay nada útil.");
+                }
+            }
+            // Tumba aleatoria para el esqueleto (ej: Fila 2, Col 0)
+            else if(fila === 2 && col === 0 && relojObtenido && !esqueletoDerrotado) {
+                if(itemSel === '🪏') {
+                    esqueletoDerrotado = true;
+                    hablar("¡Derrotaste al esqueleto con la pala! Dejó caer una antena 📡.");
+                    antenaObtenida = true;
+                    agregarItem('📡');
+                } else {
+                    hablar("¡Un esqueleto salió de la tumba! ¡Golpéalo con la pala del inventario!");
+                }
+            } else {
+                // Tumba incorrecta
+                hablar("El niño dice: ¡Busca más entre las tumbas escarbando!");
+            }
+        }
+
+        function tocarCasaDerecha() {
+            let itemSel = indiceSeleccionado !== null ? inventario[indiceSeleccionado] : null;
+            if(itemSel === '🔨') {
+                if(!casaDerRota) {
+                    casaDerRota = true;
+                    escaleraObtenida = true;
+                    relojObtenido = true;
+                    hablar("¡Rompiste la casa! De la derecha salió una escalera (🪜) y un reloj (⌚). Añadidos al inventario.");
+                    removerItem('🔨');
+                    agregarItem('🪜');
+                    agregarItem('⌚');
+                } else {
+                    hablar("Esta casa ya está destruida.");
+                }
+            } else {
+                hablar("Es una casa abandonada. Necesitas romperla con un martillo.");
+            }
+        }
+
+        function tocarCasaIzquierda() {
+            let itemSel = indiceSeleccionado !== null ? inventario[indiceSeleccionado] : null;
+            if(itemSel === '🔨') {
+                if(!casaIzqRota) {
+                    casaIzqRota = true;
+                    cajaAbierta = true; // Simboliza que salió la caja fuerte y televisión
+                    hablar("¡Rompiste la casa izquierda! Salieron una caja fuerte (🧰) y una televisión (📺). (No caben en el inventario, están en el escenario).");
+                    removerItem('🔨');
+                } else {
+                    hablar("Esta casa ya está destruida.");
+                }
+            } else {
+                hablar("Es otra casa abandonada. Necesitas el martillo.");
+            }
+        }
+
+        function tocarParroquia() {
+            let itemSel = indiceSeleccionado !== null ? inventario[indiceSeleccionado] : null;
+
+            if(itemSel === '🪜') {
+                if(!destornilladorObtenido) {
+                    destornilladorObtenido = true;
+                    hablar("¡Usaste la escalera para alcanzar el destornillador! La escalera se usó y el destornillador (🪛) reemplazó su lugar.");
+                    document.getElementById('destornillador-parroquia').style.display = 'none';
+                    // Reemplazar escalera por destornillador en inventario
+                    for(let i=0; i<inventario.length; i++) {
+                        if(inventario[i] === '🪜') {
+                            inventario[i] = '🪛';
+                            break;
+                        }
+                    }
+                    actualizarInventarioUI();
+                } else {
+                    hablar("Ya tomaste el destornillador de la parroquia.");
+                }
+            } else if(itemSel === '🪛') {
+                // Abrir la caja fuerte con el destornillador
+                if(cajaAbierta && !telefonoObtenido) {
+                    telefonoObtenido = true;
+                    hablar("¡Abriste la caja fuerte con el destornillador y obtuviste un teléfono (📱) y una llave! Llave usada para abrir la iglesia de entierro (🏤).");
+                    agregarItem('📱');
+                } else {
+                    hablar("Primero debes romper la casa izquierda para sacar la caja fuerte.");
+                }
+            } else {
+                hablar("Es la parroquia de entierro. Hay un destornillador arriba, pero está muy alto. Necesitas una escalera.");
+            }
+        }
+
+        // --- MECÁNICA DE RELOJ ---
+        function cambiarHora(delta) {
+            minutosReloj += delta * 15;
+            if(minutosReloj < 0) minutosReloj = 0;
+            if(minutosReloj > 720) minutosReloj = 720;
+
+            let horas = Math.floor(minutosReloj / 60) + 12;
+            if(horas > 12) horas -= 12;
+            let mins = minutosReloj % 60;
+            let strMins = mins < 10 ? '0' + mins : mins;
+            document.getElementById('display-hora').innerText = `${horas}:${strMins} PM`;
+
+            if(minutosReloj === 60) { // 1:00 PM
+                hablar("¡El reloj marcó la 1:00 PM! Un esqueleto ha aparecido en una tumba.");
+            }
+        }
+
+        // --- MECÁNICA DE TV Y COLORES ---
+        function girarColor(idx) {
+            let actualColor = coloresTV[idx];
+            let pos = listaColores.indexOf(actualColor);
+            let nuevoColor = listaColores[(pos + 1) % listaColores.length];
+            coloresTV[idx] = nuevoColor;
+
+            // Mapeo de colores a HEX para CSS
+            const mapHex = { 'orange': 'orange', 'yellow': 'yellow', 'green': 'green', 'white': 'white', 'red': '#ef4444', 'blue': '#3b82f6' };
+            let el = document.getElementById(`c-${idx}`);
+            el.style.background = mapHex[nuevoColor];
+
+            verificarPatronColores();
+        }
+
+        function verificarPatronColores() {
+            let coincide = true;
+            for(let i=0; i<4; i++) {
+                if(coloresTV[i] !== patronCorrecto[i]) coincide = false;
+            }
+            if(coincide) {
+                codigoColoresResuelto = true;
+                document.getElementById('resultado-tv').innerText = "¡Código obtenido: 9231!";
+                if(!tvPrendida) {
+                    tvPrendida = true;
+                    agregarItem('📺');
+                    hablar("¡La televisión se ha encendido y muestra el código 9231! Añadida al inventario.");
+                }
+            }
+        }
+
+        // --- MECÁNICA DE TELÉFONO ---
+        function agregarDigito(dig) {
+            if(codigoIngresadoText.length < 4) {
+                codigoIngresadoText += dig;
+                document.getElementById('input-codigo').innerText = codigoIngresadoText;
+            }
+        }
+
+        function borrarDigito() {
+            codigoIngresadoText = codigoIngresadoText.slice(0, -1);
+            document.getElementById('input-codigo').innerText = codigoIngresadoText || "----";
+        }
+
+        function probarCodigo() {
+            if(codigoIngresadoText === "9231") {
+                codigoTelefonoIngresado = true;
+                document.getElementById('modal-telefono').classList.add('oculto');
+                document.getElementById('pelota-obj').style.display = 'none';
+                
+                // Mostrar pantalla primer premio
+                document.getElementById('contenedor-juego').classList.add('oculto');
+                document.getElementById('pantalla-victoria-1').classList.remove('oculto');
+            } else {
+                alert("Código incorrecto. Intenta de nuevo.");
+                codigoIngresadoText = "";
+                document.getElementById('input-codigo').innerText = "----";
+            }
+        }
+
+        function continuarSegundoPremio() {
+            document.getElementById('pantalla-victoria-1').classList.add('oculto');
+            document.getElementById('pantalla-victoria-2').classList.remove('oculto');
+        }
+    </script>
+</body>
+</html>
